@@ -33,7 +33,6 @@ import org.apache.flink.kubernetes.operator.crd.spec.TaskManagerSpec;
 import org.apache.flink.kubernetes.operator.crd.spec.UpgradeMode;
 import org.apache.flink.kubernetes.operator.crd.status.FlinkDeploymentStatus;
 import org.apache.flink.kubernetes.operator.crd.status.FlinkSessionJobStatus;
-import org.apache.flink.kubernetes.operator.crd.status.JobManagerDeploymentStatus;
 import org.apache.flink.kubernetes.operator.exception.DeploymentFailedException;
 
 import io.fabric8.kubernetes.api.model.Container;
@@ -218,41 +217,6 @@ public class TestUtils {
             public <T> Optional<T> getSecondaryResource(
                     Class<T> expectedType, String eventSourceName) {
                 return Optional.of((T) createDeployment(false));
-            }
-        };
-    }
-
-    public static Context createContextWithReadyFlinkDeployment() {
-        return new Context() {
-            @Override
-            public Optional<RetryInfo> getRetryInfo() {
-                return Optional.empty();
-            }
-
-            @Override
-            public <T> Optional<T> getSecondaryResource(
-                    Class<T> expectedType, String eventSourceName) {
-                var session = buildSessionCluster();
-                session.getStatus().setJobManagerDeploymentStatus(JobManagerDeploymentStatus.READY);
-                return Optional.of((T) session);
-            }
-        };
-    }
-
-    public static Context createContextWithNotReadyFlinkDeployment() {
-        return new Context() {
-            @Override
-            public Optional<RetryInfo> getRetryInfo() {
-                return Optional.empty();
-            }
-
-            @Override
-            public <T> Optional<T> getSecondaryResource(
-                    Class<T> expectedType, String eventSourceName) {
-                var session = buildSessionCluster();
-                session.getStatus()
-                        .setJobManagerDeploymentStatus(JobManagerDeploymentStatus.MISSING);
-                return Optional.of((T) session);
             }
         };
     }
