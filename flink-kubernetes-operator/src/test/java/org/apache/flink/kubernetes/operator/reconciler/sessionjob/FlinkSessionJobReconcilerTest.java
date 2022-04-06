@@ -21,10 +21,16 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.TestUtils;
 import org.apache.flink.kubernetes.operator.TestingFlinkService;
 import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
+import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.FlinkSessionJob;
+import org.apache.flink.kubernetes.operator.crd.status.JobManagerDeploymentStatus;
+import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Optional;
+import java.util.function.Supplier;
 
 /** Tests for {@link FlinkSessionJobReconciler}. */
 public class FlinkSessionJobReconcilerTest {
@@ -39,15 +45,46 @@ public class FlinkSessionJobReconcilerTest {
 
         FlinkSessionJobReconciler reconciler =
                 new FlinkSessionJobReconciler(null, flinkService, operatorConfiguration);
-        reconciler.reconcile(sessionJob, TestUtils.createEmptyContext(), new Configuration());
+        reconciler.reconcile(
+                sessionJob,
+                new SessionJobReconcilerContext(
+                        new Configuration(),
+                        TestUtils.createEmptyContext(),
+                        ReconciliationUtils.clone(sessionJob),
+                        Optional.empty()));
         Assertions.assertEquals(0, flinkService.listJobs().size());
         reconciler.reconcile(
                 sessionJob,
-                TestUtils.createContextWithNotReadyFlinkDeployment(),
-                new Configuration());
+                new SessionJobReconcilerContext(
+                        new Configuration(),
+                        TestUtils.createEmptyContext(),
+                        ReconciliationUtils.clone(sessionJob),
+                        Optional.of(
+                                get(
+                                        () -> {
+                                            var session = TestUtils.buildSessionCluster();
+                                            session.getStatus()
+                                                    .setJobManagerDeploymentStatus(
+                                                            JobManagerDeploymentStatus.MISSING);
+                                            return session;
+                                        }))));
+
         Assertions.assertEquals(0, flinkService.listJobs().size());
         reconciler.reconcile(
-                sessionJob, TestUtils.createContextWithReadyFlinkDeployment(), new Configuration());
+                sessionJob,
+                new SessionJobReconcilerContext(
+                        new Configuration(),
+                        TestUtils.createEmptyContext(),
+                        ReconciliationUtils.clone(sessionJob),
+                        Optional.of(
+                                get(
+                                        () -> {
+                                            var session = TestUtils.buildSessionCluster();
+                                            session.getStatus()
+                                                    .setJobManagerDeploymentStatus(
+                                                            JobManagerDeploymentStatus.READY);
+                                            return session;
+                                        }))));
         Assertions.assertEquals(1, flinkService.listJobs().size());
         // clean up
         sessionJob
@@ -55,7 +92,24 @@ public class FlinkSessionJobReconcilerTest {
                 .getJobStatus()
                 .setJobId(flinkService.listJobs().get(0).f1.getJobId().toHexString());
         reconciler.cleanup(
-                sessionJob, TestUtils.createContextWithReadyFlinkDeployment(), new Configuration());
+                sessionJob,
+                new SessionJobReconcilerContext(
+                        new Configuration(),
+                        TestUtils.createEmptyContext(),
+                        ReconciliationUtils.clone(sessionJob),
+                        Optional.of(
+                                get(
+                                        () -> {
+                                            var session = TestUtils.buildSessionCluster();
+                                            session.getStatus()
+                                                    .setJobManagerDeploymentStatus(
+                                                            JobManagerDeploymentStatus.READY);
+                                            return session;
+                                        }))));
         Assertions.assertEquals(0, flinkService.listJobs().size());
+    }
+
+    private FlinkDeployment get(Supplier<FlinkDeployment> supplier) {
+        return supplier.get();
     }
 }

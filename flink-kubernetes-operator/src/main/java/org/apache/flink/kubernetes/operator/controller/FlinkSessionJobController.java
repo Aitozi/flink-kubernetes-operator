@@ -25,7 +25,7 @@ import org.apache.flink.kubernetes.operator.exception.ReconciliationException;
 import org.apache.flink.kubernetes.operator.observer.Observer;
 import org.apache.flink.kubernetes.operator.reconciler.Reconciler;
 import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
-import org.apache.flink.kubernetes.operator.utils.OperatorUtils;
+import org.apache.flink.kubernetes.operator.reconciler.sessionjob.SessionJobReconcilerContext;
 import org.apache.flink.kubernetes.operator.validation.FlinkResourceValidator;
 import org.apache.flink.util.Preconditions;
 
@@ -69,7 +69,7 @@ public class FlinkSessionJobController
     private final KubernetesClient kubernetesClient;
 
     private final FlinkResourceValidator validator;
-    private final Reconciler<FlinkSessionJob> reconciler;
+    private final Reconciler<FlinkSessionJob, SessionJobReconcilerContext> reconciler;
     private final Observer<FlinkSessionJob> observer;
     private final DefaultConfig defaultConfig;
     private final FlinkOperatorConfiguration operatorConfiguration;
@@ -81,7 +81,7 @@ public class FlinkSessionJobController
             FlinkOperatorConfiguration operatorConfiguration,
             KubernetesClient kubernetesClient,
             FlinkResourceValidator validator,
-            Reconciler<FlinkSessionJob> reconciler,
+            Reconciler<FlinkSessionJob, SessionJobReconcilerContext> reconciler,
             Observer<FlinkSessionJob> observer) {
         this.defaultConfig = defaultConfig;
         this.operatorConfiguration = operatorConfiguration;
@@ -101,12 +101,10 @@ public class FlinkSessionJobController
             FlinkSessionJob flinkSessionJob, Context context) {
         LOG.info("Starting reconciliation");
         FlinkSessionJob originalCopy = ReconciliationUtils.clone(flinkSessionJob);
+        Optional<FlinkDeployment> session = getSecondaryResource(flinkSessionJob, context);
+
         observer.observe(flinkSessionJob, context);
-        Optional<String> validationError =
-                validator.validateSessionJob(
-                        flinkSessionJob,
-                        OperatorUtils.getSecondaryResource(
-                                flinkSessionJob, context, operatorConfiguration));
+        Optional<String> validationError = validator.validateSessionJob(flinkSessionJob, session);
         if (validationError.isPresent()) {
             LOG.error("Validation failed: " + validationError.get());
             ReconciliationUtils.updateForReconciliationError(
@@ -114,22 +112,28 @@ public class FlinkSessionJobController
             return ReconciliationUtils.toUpdateControl(originalCopy, flinkSessionJob);
         }
 
+        SessionJobReconcilerContext ctx =
+                new SessionJobReconcilerContext(
+                        defaultConfig.getFlinkConfig(), context, originalCopy, session);
+
         try {
-            // TODO refactor the reconciler interface to return UpdateControl directly
-            reconciler.reconcile(flinkSessionJob, context, defaultConfig.getFlinkConfig());
+            return reconciler.reconcile(flinkSessionJob, ctx);
         } catch (Exception e) {
             throw new ReconciliationException(e);
         }
-
-        return ReconciliationUtils.toUpdateControl(originalCopy, flinkSessionJob)
-                .rescheduleAfter(operatorConfiguration.getReconcileInterval().toMillis());
     }
 
     @Override
     public DeleteControl cleanup(FlinkSessionJob sessionJob, Context context) {
         LOG.info("Deleting FlinkSessionJob");
 
-        return reconciler.cleanup(sessionJob, context, defaultConfig.getFlinkConfig());
+        FlinkSessionJob originalCopy = ReconciliationUtils.clone(sessionJob);
+        Optional<FlinkDeployment> session = getSecondaryResource(sessionJob, context);
+
+        return reconciler.cleanup(
+                sessionJob,
+                new SessionJobReconcilerContext(
+                        defaultConfig.getFlinkConfig(), context, originalCopy, session));
     }
 
     @Override
@@ -241,5 +245,14 @@ public class FlinkSessionJobController
 
     private Map<String, Function<FlinkSessionJob, List<String>>> clusterToSessionJobIndexer() {
         return Map.of(CLUSTER_ID_INDEX, sessionJob -> List.of(sessionJob.getSpec().getClusterId()));
+    }
+
+    private Optional<FlinkDeployment> getSecondaryResource(
+            FlinkSessionJob sessionJob, Context context) {
+        var identifier =
+                operatorConfiguration.getWatchedNamespaces().size() >= 1
+                        ? sessionJob.getMetadata().getNamespace()
+                        : null;
+        return context.getSecondaryResource(FlinkDeployment.class, identifier);
     }
 }

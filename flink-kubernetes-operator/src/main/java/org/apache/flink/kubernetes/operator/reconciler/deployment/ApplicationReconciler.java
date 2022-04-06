@@ -38,7 +38,7 @@ import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
 import org.apache.flink.util.Preconditions;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
+import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,11 +62,12 @@ public class ApplicationReconciler extends AbstractDeploymentReconciler {
     }
 
     @Override
-    public void reconcile(FlinkDeployment flinkApp, Context context, Configuration effectiveConfig)
-            throws Exception {
+    public UpdateControl<FlinkDeployment> reconcile(
+            FlinkDeployment flinkApp, DeploymentReconcilerContext context) throws Exception {
 
         FlinkDeploymentSpec lastReconciledSpec =
                 flinkApp.getStatus().getReconciliationStatus().getLastReconciledSpec();
+        var effectiveConfig = context.getEffectiveConfig();
         JobSpec jobSpec = flinkApp.getSpec().getJob();
         if (lastReconciledSpec == null) {
             deployFlinkJob(
@@ -75,19 +76,22 @@ public class ApplicationReconciler extends AbstractDeploymentReconciler {
                     Optional.ofNullable(jobSpec.getInitialSavepointPath()));
             IngressUtils.updateIngressRules(flinkApp, effectiveConfig, kubernetesClient);
             ReconciliationUtils.updateForSpecReconciliationSuccess(flinkApp, JobState.RUNNING);
-            return;
+            return ReconciliationUtils.toUpdateControl(
+                    operatorConfiguration, context.getOriginalImmutableCopy(), flinkApp, true);
         }
 
         if (SavepointUtils.savepointInProgress(flinkApp)) {
             LOG.info("Delaying job reconciliation until pending savepoint is completed");
-            return;
+            return ReconciliationUtils.toUpdateControl(
+                    operatorConfiguration, context.getOriginalImmutableCopy(), flinkApp, true);
         }
 
         boolean specChanged = !flinkApp.getSpec().equals(lastReconciledSpec);
         if (specChanged) {
             if (!inUpgradeableState(flinkApp)) {
                 LOG.info("Waiting for upgradeable state");
-                return;
+                return ReconciliationUtils.toUpdateControl(
+                        operatorConfiguration, context.getOriginalImmutableCopy(), flinkApp, true);
             }
             JobState currentJobState = lastReconciledSpec.getJob().getState();
             JobState desiredJobState = jobSpec.getState();
@@ -115,6 +119,8 @@ public class ApplicationReconciler extends AbstractDeploymentReconciler {
             triggerSavepoint(flinkApp, effectiveConfig);
             ReconciliationUtils.updateSavepointReconciliationSuccess(flinkApp);
         }
+        return ReconciliationUtils.toUpdateControl(
+                operatorConfiguration, context.getOriginalImmutableCopy(), flinkApp, true);
     }
 
     private boolean inUpgradeableState(FlinkDeployment deployment) {

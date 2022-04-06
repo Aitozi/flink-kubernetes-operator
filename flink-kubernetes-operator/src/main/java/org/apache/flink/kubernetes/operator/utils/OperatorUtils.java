@@ -18,9 +18,6 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
-import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
-import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
-import org.apache.flink.kubernetes.operator.crd.FlinkSessionJob;
 import org.apache.flink.kubernetes.utils.Constants;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
@@ -29,7 +26,6 @@ import io.fabric8.kubernetes.api.model.apps.DeploymentList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.FilterWatchListDeletable;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.processing.event.source.informer.InformerEventSource;
 import io.javaoperatorsdk.operator.processing.event.source.informer.Mappers;
 import org.apache.commons.lang3.StringUtils;
@@ -37,7 +33,6 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Optional;
 import java.util.Set;
 
 /** Operator SDK related utility functions. */
@@ -83,16 +78,5 @@ public class OperatorUtils {
         } else {
             return new HashSet<>(Arrays.asList(watchedNamespaces.split(NAMESPACES_SPLITTER_KEY)));
         }
-    }
-
-    public static Optional<FlinkDeployment> getSecondaryResource(
-            FlinkSessionJob sessionJob,
-            Context context,
-            FlinkOperatorConfiguration operatorConfiguration) {
-        var identifier =
-                operatorConfiguration.getWatchedNamespaces().size() >= 1
-                        ? sessionJob.getMetadata().getNamespace()
-                        : null;
-        return context.getSecondaryResource(FlinkDeployment.class, identifier);
     }
 }

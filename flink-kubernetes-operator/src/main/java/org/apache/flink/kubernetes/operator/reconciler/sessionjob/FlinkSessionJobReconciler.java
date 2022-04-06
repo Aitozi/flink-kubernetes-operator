@@ -18,9 +18,7 @@
 package org.apache.flink.kubernetes.operator.reconciler.sessionjob;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
-import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.FlinkSessionJob;
 import org.apache.flink.kubernetes.operator.crd.spec.FlinkSessionJobSpec;
 import org.apache.flink.kubernetes.operator.crd.status.JobManagerDeploymentStatus;
@@ -28,19 +26,16 @@ import org.apache.flink.kubernetes.operator.reconciler.Reconciler;
 import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
 import org.apache.flink.kubernetes.operator.reconciler.deployment.ApplicationReconciler;
 import org.apache.flink.kubernetes.operator.service.FlinkService;
-import org.apache.flink.kubernetes.operator.utils.FlinkUtils;
-import org.apache.flink.kubernetes.operator.utils.OperatorUtils;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
-
 /** The reconciler for the {@link FlinkSessionJob}. */
-public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
+public class FlinkSessionJobReconciler
+        implements Reconciler<FlinkSessionJob, SessionJobReconcilerContext> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplicationReconciler.class);
 
@@ -58,16 +53,17 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
     }
 
     @Override
-    public void reconcile(
-            FlinkSessionJob flinkSessionJob, Context context, Configuration defaultConfig)
-            throws Exception {
+    public UpdateControl<FlinkSessionJob> reconcile(
+            FlinkSessionJob flinkSessionJob, SessionJobReconcilerContext context) throws Exception {
 
         FlinkSessionJobSpec lastReconciledSpec =
                 flinkSessionJob.getStatus().getReconciliationStatus().getLastReconciledSpec();
 
         if (lastReconciledSpec == null) {
-            submitFlinkJob(flinkSessionJob, context, defaultConfig);
-            return;
+            submitFlinkJob(flinkSessionJob, context);
+            return ReconciliationUtils.toUpdateControl(
+                            context.getOriginalImmutableCopy(), flinkSessionJob)
+                    .rescheduleAfter(operatorConfiguration.getReconcileInterval().toMillis());
         }
 
         boolean specChanged = !flinkSessionJob.getSpec().equals(lastReconciledSpec);
@@ -76,21 +72,21 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
             // TODO reconcile other spec change.
             LOG.info("Other spec change have not supported");
         }
+        return ReconciliationUtils.toUpdateControl(
+                        context.getOriginalImmutableCopy(), flinkSessionJob)
+                .rescheduleAfter(operatorConfiguration.getReconcileInterval().toMillis());
     }
 
     @Override
-    public DeleteControl cleanup(
-            FlinkSessionJob sessionJob, Context context, Configuration defaultConfig) {
-        Optional<FlinkDeployment> flinkDepOptional =
-                OperatorUtils.getSecondaryResource(sessionJob, context, operatorConfiguration);
+    public DeleteControl cleanup(FlinkSessionJob sessionJob, SessionJobReconcilerContext context) {
+        var sessionOpt = context.getSession();
 
-        if (flinkDepOptional.isPresent()) {
-            Configuration effectiveConfig =
-                    FlinkUtils.getEffectiveConfig(flinkDepOptional.get(), defaultConfig);
+        if (sessionOpt.isPresent()) {
             String jobID = sessionJob.getStatus().getJobStatus().getJobId();
             if (jobID != null) {
                 try {
-                    flinkService.cancelSessionJob(JobID.fromHexString(jobID), effectiveConfig);
+                    flinkService.cancelSessionJob(
+                            JobID.fromHexString(jobID), context.getEffectiveConfig());
                 } catch (Exception e) {
                     LOG.error("Failed to cancel job.", e);
                 }
@@ -101,18 +97,14 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
         return DeleteControl.defaultDelete();
     }
 
-    private void submitFlinkJob(
-            FlinkSessionJob sessionJob, Context context, Configuration defaultConfig)
+    private void submitFlinkJob(FlinkSessionJob sessionJob, SessionJobReconcilerContext context)
             throws Exception {
-        Optional<FlinkDeployment> flinkDepOptional =
-                OperatorUtils.getSecondaryResource(sessionJob, context, operatorConfiguration);
-        if (flinkDepOptional.isPresent()) {
-            var flinkdep = flinkDepOptional.get();
-            var jobDeploymentStatus = flinkdep.getStatus().getJobManagerDeploymentStatus();
+        var sessionOpt = context.getSession();
+        if (sessionOpt.isPresent()) {
+            var session = sessionOpt.get();
+            var jobDeploymentStatus = session.getStatus().getJobManagerDeploymentStatus();
             if (jobDeploymentStatus == JobManagerDeploymentStatus.READY) {
-                Configuration effectiveConfig =
-                        FlinkUtils.getEffectiveConfig(flinkdep, defaultConfig);
-                flinkService.submitJobToSessionCluster(sessionJob, effectiveConfig);
+                flinkService.submitJobToSessionCluster(sessionJob, context.getEffectiveConfig());
                 ReconciliationUtils.updateForSpecReconciliationSuccess(sessionJob);
             } else {
                 LOG.info(

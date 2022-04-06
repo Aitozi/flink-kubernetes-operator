@@ -22,6 +22,7 @@ import org.apache.flink.kubernetes.operator.TestUtils;
 import org.apache.flink.kubernetes.operator.TestingFlinkService;
 import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
 import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
+import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
 
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,10 @@ public class SessionReconcilerTest {
         SessionReconciler reconciler =
                 new SessionReconciler(null, flinkService, operatorConfiguration);
         FlinkDeployment deployment = TestUtils.buildSessionCluster();
-        reconciler.reconcile(deployment, context, new Configuration());
+        reconciler.reconcile(
+                deployment,
+                new DeploymentReconcilerContext(
+                        context, new Configuration(), ReconciliationUtils.clone(deployment)));
         assertEquals(1, count.get());
     }
 }

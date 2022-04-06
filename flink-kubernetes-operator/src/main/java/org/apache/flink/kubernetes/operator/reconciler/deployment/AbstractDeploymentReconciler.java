@@ -26,11 +26,11 @@ import org.apache.flink.kubernetes.operator.service.FlinkService;
 import org.apache.flink.kubernetes.operator.utils.FlinkUtils;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
 
 /** BaseReconciler with functionality that is common to job and session modes. */
-public abstract class AbstractDeploymentReconciler implements Reconciler<FlinkDeployment> {
+public abstract class AbstractDeploymentReconciler
+        implements Reconciler<FlinkDeployment, DeploymentReconcilerContext> {
 
     protected final FlinkOperatorConfiguration operatorConfiguration;
     protected final KubernetesClient kubernetesClient;
@@ -46,9 +46,8 @@ public abstract class AbstractDeploymentReconciler implements Reconciler<FlinkDe
     }
 
     @Override
-    public DeleteControl cleanup(
-            FlinkDeployment flinkApp, Context context, Configuration effectiveConfig) {
-        return shutdownAndDelete(flinkApp, effectiveConfig);
+    public DeleteControl cleanup(FlinkDeployment flinkApp, DeploymentReconcilerContext context) {
+        return shutdownAndDelete(flinkApp, context.getEffectiveConfig());
     }
 
     private DeleteControl shutdownAndDelete(

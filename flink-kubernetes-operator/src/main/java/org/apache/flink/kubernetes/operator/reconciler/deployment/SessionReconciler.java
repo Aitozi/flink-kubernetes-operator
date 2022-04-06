@@ -27,7 +27,7 @@ import org.apache.flink.kubernetes.operator.service.FlinkService;
 import org.apache.flink.kubernetes.operator.utils.IngressUtils;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.reconciler.Context;
+import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,11 +47,12 @@ public class SessionReconciler extends AbstractDeploymentReconciler {
     }
 
     @Override
-    public void reconcile(FlinkDeployment flinkApp, Context context, Configuration effectiveConfig)
-            throws Exception {
+    public UpdateControl<FlinkDeployment> reconcile(
+            FlinkDeployment flinkApp, DeploymentReconcilerContext context) throws Exception {
 
         FlinkDeploymentSpec lastReconciledSpec =
                 flinkApp.getStatus().getReconciliationStatus().getLastReconciledSpec();
+        var effectiveConfig = context.getEffectiveConfig();
 
         if (lastReconciledSpec == null) {
             flinkService.submitSessionCluster(flinkApp, effectiveConfig);
@@ -59,7 +60,8 @@ public class SessionReconciler extends AbstractDeploymentReconciler {
                     .setJobManagerDeploymentStatus(JobManagerDeploymentStatus.DEPLOYING);
             IngressUtils.updateIngressRules(flinkApp, effectiveConfig, kubernetesClient);
             ReconciliationUtils.updateForSpecReconciliationSuccess(flinkApp, null);
-            return;
+            return ReconciliationUtils.toUpdateControl(context.getOriginalImmutableCopy(), flinkApp)
+                    .rescheduleAfter(operatorConfiguration.getReconcileInterval().toMillis());
         }
 
         boolean specChanged = !flinkApp.getSpec().equals(lastReconciledSpec);
@@ -69,6 +71,8 @@ public class SessionReconciler extends AbstractDeploymentReconciler {
         }
 
         ReconciliationUtils.updateForSpecReconciliationSuccess(flinkApp, null);
+        return ReconciliationUtils.toUpdateControl(context.getOriginalImmutableCopy(), flinkApp)
+                .rescheduleAfter(operatorConfiguration.getReconcileInterval().toMillis());
     }
 
     private void upgradeSessionCluster(FlinkDeployment flinkApp, Configuration effectiveConfig)

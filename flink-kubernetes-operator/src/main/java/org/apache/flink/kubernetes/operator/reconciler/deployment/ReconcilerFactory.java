@@ -34,7 +34,7 @@ public class ReconcilerFactory {
     private final KubernetesClient kubernetesClient;
     private final FlinkService flinkService;
     private final FlinkOperatorConfiguration operatorConfiguration;
-    private final Map<Mode, Reconciler<FlinkDeployment>> reconcilerMap;
+    private final Map<Mode, Reconciler<FlinkDeployment, DeploymentReconcilerContext>> reconcilerMap;
 
     public ReconcilerFactory(
             KubernetesClient kubernetesClient,
@@ -46,7 +46,8 @@ public class ReconcilerFactory {
         this.reconcilerMap = new ConcurrentHashMap<>();
     }
 
-    public Reconciler<FlinkDeployment> getOrCreate(FlinkDeployment flinkApp) {
+    public Reconciler<FlinkDeployment, DeploymentReconcilerContext> getOrCreate(
+            FlinkDeployment flinkApp) {
         return reconcilerMap.computeIfAbsent(
                 Mode.getMode(flinkApp),
                 mode -> {

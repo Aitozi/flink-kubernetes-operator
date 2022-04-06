@@ -26,6 +26,7 @@ import org.apache.flink.kubernetes.operator.exception.DeploymentFailedException;
 import org.apache.flink.kubernetes.operator.exception.ReconciliationException;
 import org.apache.flink.kubernetes.operator.observer.deployment.ObserverFactory;
 import org.apache.flink.kubernetes.operator.reconciler.ReconciliationUtils;
+import org.apache.flink.kubernetes.operator.reconciler.deployment.DeploymentReconcilerContext;
 import org.apache.flink.kubernetes.operator.reconciler.deployment.ReconcilerFactory;
 import org.apache.flink.kubernetes.operator.utils.FlinkUtils;
 import org.apache.flink.kubernetes.operator.utils.OperatorUtils;
@@ -88,6 +89,7 @@ public class FlinkDeploymentController
     @Override
     public DeleteControl cleanup(FlinkDeployment flinkApp, Context context) {
         LOG.info("Deleting FlinkDeployment");
+        FlinkDeployment originalCopy = ReconciliationUtils.clone(flinkApp);
         try {
             observerFactory.getOrCreate(flinkApp).observe(flinkApp, context);
         } catch (DeploymentFailedException dfe) {
@@ -95,7 +97,11 @@ public class FlinkDeploymentController
         }
         Configuration effectiveConfig =
                 FlinkUtils.getEffectiveConfig(flinkApp, defaultConfig.getFlinkConfig());
-        return reconcilerFactory.getOrCreate(flinkApp).cleanup(flinkApp, context, effectiveConfig);
+        return reconcilerFactory
+                .getOrCreate(flinkApp)
+                .cleanup(
+                        flinkApp,
+                        new DeploymentReconcilerContext(context, effectiveConfig, originalCopy));
     }
 
     @Override
@@ -113,16 +119,22 @@ public class FlinkDeploymentController
             }
             Configuration effectiveConfig =
                     FlinkUtils.getEffectiveConfig(flinkApp, defaultConfig.getFlinkConfig());
-            reconcilerFactory.getOrCreate(flinkApp).reconcile(flinkApp, context, effectiveConfig);
+            var updateControl =
+                    reconcilerFactory
+                            .getOrCreate(flinkApp)
+                            .reconcile(
+                                    flinkApp,
+                                    new DeploymentReconcilerContext(
+                                            context, effectiveConfig, originalCopy));
+            LOG.info("Reconciliation successfully completed");
+            return updateControl;
         } catch (DeploymentFailedException dfe) {
             handleDeploymentFailed(flinkApp, dfe);
+            return ReconciliationUtils.toUpdateControl(
+                    operatorConfiguration, originalCopy, flinkApp, true);
         } catch (Exception e) {
             throw new ReconciliationException(e);
         }
-
-        LOG.info("Reconciliation successfully completed");
-        return ReconciliationUtils.toUpdateControl(
-                operatorConfiguration, originalCopy, flinkApp, true);
     }
 
     private void handleDeploymentFailed(FlinkDeployment flinkApp, DeploymentFailedException dfe) {
