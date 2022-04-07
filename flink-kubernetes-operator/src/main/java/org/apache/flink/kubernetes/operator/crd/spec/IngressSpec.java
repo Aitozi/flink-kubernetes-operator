@@ -31,7 +31,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class IngressSpec {
 
     /** Ingress template for the JobManager service. */

@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class SavepointInfo {
     /** Last completed savepoint by the operator. */
     private Savepoint lastSavepoint;

@@ -32,7 +32,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class FlinkDeploymentSpec {
     /** Flink docker image used to start the Job and TaskManager pods. */
     private String image;

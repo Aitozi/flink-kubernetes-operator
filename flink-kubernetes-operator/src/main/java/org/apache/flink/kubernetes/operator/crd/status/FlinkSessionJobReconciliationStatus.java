@@ -30,7 +30,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 public class FlinkSessionJobReconciliationStatus {
     /** True if last reconciliation step was successful. */
     private boolean success;
