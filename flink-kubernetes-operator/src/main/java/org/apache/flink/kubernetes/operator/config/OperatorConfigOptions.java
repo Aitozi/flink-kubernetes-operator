@@ -83,4 +83,10 @@ public class OperatorConfigOptions {
                     .defaultValue(Duration.ofSeconds(60))
                     .withDescription(
                             "The timeout for the reconciler to wait for flink to shutdown cluster.");
+
+    public static final ConfigOption<String> OPERATOR_USER_JAR_BASE_DIR =
+            ConfigOptions.key("operator.user.artifacts.base.dir")
+                    .stringType()
+                    .defaultValue("/opt/flink/artifacts")
+                    .withDescription("The base dir to put the session job artifacts.");
 }

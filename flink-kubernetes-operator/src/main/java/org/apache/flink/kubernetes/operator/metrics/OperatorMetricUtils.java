@@ -19,7 +19,6 @@ package org.apache.flink.kubernetes.operator.metrics;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.plugin.PluginManager;
-import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.kubernetes.operator.utils.EnvUtils;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.metrics.MetricRegistry;
@@ -31,8 +30,8 @@ import org.apache.flink.runtime.metrics.util.MetricUtils;
 /** Utility class for flink based operator metrics. */
 public class OperatorMetricUtils {
 
-    public static void initOperatorMetrics(Configuration operatorConfig) {
-        PluginManager pluginManager = PluginUtils.createPluginManagerFromRootFolder(operatorConfig);
+    public static void initOperatorMetrics(
+            Configuration operatorConfig, PluginManager pluginManager) {
         MetricRegistry metricRegistry = createMetricRegistry(operatorConfig, pluginManager);
         KubernetesOperatorMetricGroup operatorMetricGroup =
                 KubernetesOperatorMetricGroup.create(

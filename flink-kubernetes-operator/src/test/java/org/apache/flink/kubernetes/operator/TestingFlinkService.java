@@ -21,6 +21,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.kubernetes.operator.config.FlinkOperatorConfiguration;
 import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.FlinkSessionJob;
 import org.apache.flink.kubernetes.operator.crd.spec.UpgradeMode;
@@ -59,7 +60,7 @@ public class TestingFlinkService extends FlinkService {
     private Consumer<Configuration> listJobConsumer = conf -> {};
 
     public TestingFlinkService() {
-        super(null, null);
+        super(null, FlinkOperatorConfiguration.fromConfiguration(new Configuration()));
     }
 
     public void clear() {
@@ -88,7 +89,10 @@ public class TestingFlinkService extends FlinkService {
 
     @Override
     public JobID submitJobToSessionCluster(
-            FlinkSessionJob sessionJob, Configuration conf, @Nullable String savepoint) {
+            FlinkSessionJob sessionJob,
+            FlinkDeployment sessionCluster,
+            Configuration conf,
+            @Nullable String savepoint) {
         JobID jobID = new JobID();
         JobStatusMessage jobStatusMessage =
                 new JobStatusMessage(

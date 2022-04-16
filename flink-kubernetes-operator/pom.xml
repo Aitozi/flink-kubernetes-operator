@@ -77,6 +77,12 @@ under the License.
 
         <dependency>
             <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
             <artifactId>flink-kubernetes-shaded</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
@@ -133,6 +139,13 @@ under the License.
             <groupId>io.fabric8</groupId>
             <artifactId>kubernetes-server-mock</artifactId>
             <version>${fabric8.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-test-utils-junit</artifactId>
+            <version>${flink.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -259,6 +272,13 @@ under the License.
                             <version>${flink.version}</version>
                             <outputDirectory>${plugins.tmp.dir}/flink-metrics-statsd</outputDirectory>
                         </artifactItem>
+                        <artifactItem>
+                            <groupId>org.apache.flink</groupId>
+                            <artifactId>flink-oss-fs-hadoop</artifactId>
+                            <version>${flink.version}</version>
+                            <outputDirectory>${plugins.tmp.dir}/flink-oss-fs-hadoop</outputDirectory>
+                        </artifactItem>
+
                     </artifactItems>
                 </configuration>
             </plugin>

@@ -89,6 +89,7 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
                     FlinkUtils.getEffectiveConfig(flinkDepOptional.get(), defaultConfig);
             submitAndInitStatus(
                     flinkSessionJob,
+                    flinkDepOptional.get(),
                     effectiveConfig,
                     Optional.ofNullable(
                                     flinkSessionJob.getSpec().getJob().getInitialSavepointPath())
@@ -120,10 +121,12 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
             }
             if (currentJobState == JobState.SUSPENDED && desiredJobState == JobState.RUNNING) {
                 if (upgradeMode == UpgradeMode.STATELESS) {
-                    submitAndInitStatus(flinkSessionJob, effectiveConfig, null);
+                    submitAndInitStatus(
+                            flinkSessionJob, flinkDepOptional.get(), effectiveConfig, null);
                 } else if (upgradeMode == UpgradeMode.LAST_STATE
                         || upgradeMode == UpgradeMode.SAVEPOINT) {
-                    restoreFromLastSavepoint(flinkSessionJob, effectiveConfig);
+                    restoreFromLastSavepoint(
+                            flinkSessionJob, flinkDepOptional.get(), effectiveConfig);
                 }
                 stateAfterReconcile = JobState.RUNNING;
             }
@@ -160,9 +163,14 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
     }
 
     private void submitAndInitStatus(
-            FlinkSessionJob sessionJob, Configuration effectiveConfig, @Nullable String savepoint)
+            FlinkSessionJob sessionJob,
+            FlinkDeployment sessionCluster,
+            Configuration effectiveConfig,
+            @Nullable String savepoint)
             throws Exception {
-        var jobID = flinkService.submitJobToSessionCluster(sessionJob, effectiveConfig, savepoint);
+        var jobID =
+                flinkService.submitJobToSessionCluster(
+                        sessionJob, sessionCluster, effectiveConfig, savepoint);
         sessionJob
                 .getStatus()
                 .setJobStatus(
@@ -174,13 +182,17 @@ public class FlinkSessionJobReconciler implements Reconciler<FlinkSessionJob> {
     }
 
     private void restoreFromLastSavepoint(
-            FlinkSessionJob flinkSessionJob, Configuration effectiveConfig) throws Exception {
+            FlinkSessionJob flinkSessionJob,
+            FlinkDeployment sessionCluster,
+            Configuration effectiveConfig)
+            throws Exception {
         JobStatus jobStatus = flinkSessionJob.getStatus().getJobStatus();
         Optional<String> savepointOpt =
                 Optional.ofNullable(jobStatus.getSavepointInfo().getLastSavepoint())
                         .flatMap(s -> Optional.ofNullable(s.getLocation()));
 
-        submitAndInitStatus(flinkSessionJob, effectiveConfig, savepointOpt.orElse(null));
+        submitAndInitStatus(
+                flinkSessionJob, sessionCluster, effectiveConfig, savepointOpt.orElse(null));
     }
 
     private Optional<String> internalSuspendJob(
