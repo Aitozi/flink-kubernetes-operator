@@ -20,6 +20,7 @@
 source "$(dirname "$0")"/utils.sh
 
 CLUSTER_ID="flink-example-statemachine"
+APPLICATION_YAML="e2e-tests/data/flinkdep-cr.yaml"
 TIMEOUT=300
 
 function cleanup_and_exit() {
@@ -27,7 +28,7 @@ function cleanup_and_exit() {
       debug_and_show_logs
     fi
 
-    kubectl delete -f e2e-tests/data/cr.yaml
+    kubectl delete -f $APPLICATION_YAML
     kubectl wait --for=delete pod --timeout=${TIMEOUT}s --selector="app=${CLUSTER_ID}"
     kubectl delete cm --selector="app=${CLUSTER_ID},configmap-type=high-availability"
 }
@@ -57,7 +58,7 @@ function assert_available_slots() {
 
 on_exit cleanup_and_exit
 
-retry_times 5 30 "kubectl apply -f e2e-tests/data/cr.yaml" || exit 1
+retry_times 5 30 "kubectl apply -f $APPLICATION_YAML" || exit 1
 
 wait_for_jobmanager_running
 
