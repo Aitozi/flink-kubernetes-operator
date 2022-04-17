@@ -20,7 +20,7 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
   namespace: default
-  name: flink-example-statemachine
+  name: session-cluster-1
 spec:
   image: flink:1.14.3
   flinkVersion: v1_14
@@ -56,7 +56,7 @@ spec:
       volumes:
         - name: flink-volume
           persistentVolumeClaim:
-            claimName: flink-example-statemachine
+            claimName: session-cluster-1-pvc
   jobManager:
     replicas: 1
     resource:
@@ -72,11 +72,11 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
   namespace: default
-  name: sessionjob2
+  name: flink-example-statemachine
 spec:
-  clusterId: flink-example-statemachine
+  clusterId: session-cluster-1
   job:
-    jarURI: file:///opt/flink/artifacts/flink-examples-streaming_2.12-1.14.3.jar
+    jarURI: https://repo1.maven.org/maven2/org/apache/flink/flink-examples-streaming_2.12/1.14.3/flink-examples-streaming_2.12-1.14.3.jar
     parallelism: 2
     upgradeMode: stateless
     entryClass: org.apache.flink.streaming.examples.statemachine.StateMachineExample
@@ -85,7 +85,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: flink-example-statemachine
+  name: session-cluster-1-pvc
 spec:
   accessModes:
     - ReadWriteOnce

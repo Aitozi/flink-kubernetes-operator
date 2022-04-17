@@ -18,9 +18,11 @@
 
 source "$(dirname "$0")"/utils.sh
 
-CLUSTER_ID="flink-example-statemachine"
-APPLICATION_YAML="e2e-tests/data/flinkdep-cr.yaml"
+CLUSTER_ID="session-cluster-1"
+APPLICATION_YAML="e2e-tests/data/sessionjob-cr.yaml"
 TIMEOUT=300
+SESSION_CLUSTER_IDENTIFIER="flinkdep/session-cluster-1"
+SESSION_JOB_IDENTIFIER="sessionjob/flink-example-statemachine"
 
 function cleanup_and_exit() {
     if [ $TRAPPED_EXIT_CODE != 0 ];then
@@ -47,8 +49,8 @@ kubectl wait --for=condition=Ready --timeout=${TIMEOUT}s pod/$jm_pod_name || exi
 wait_for_logs $jm_pod_name "Rest endpoint listening at" ${TIMEOUT} || exit 1
 
 wait_for_logs $jm_pod_name "Completed checkpoint [0-9]+ for job" ${TIMEOUT} || exit 1
-wait_for_status flinkdep/flink-example-statemachine '.status.jobManagerDeploymentStatus' READY ${TIMEOUT} || exit 1
-wait_for_status flinkdep/flink-example-statemachine '.status.jobStatus.state' RUNNING ${TIMEOUT} || exit 1
+wait_for_status $SESSION_CLUSTER_IDENTIFIER '.status.jobManagerDeploymentStatus' READY ${TIMEOUT} || exit 1
+wait_for_status $SESSION_JOB_IDENTIFIER '.status.jobStatus.state' RUNNING ${TIMEOUT} || exit 1
 
 job_id=$(kubectl logs $jm_pod_name | grep -E -o 'Job [a-z0-9]+ is submitted' | awk '{print $2}')
 
@@ -59,8 +61,8 @@ kubectl exec $jm_pod_name -- /bin/sh -c "kill 1"
 # Check the new JobManager recovering from latest successful checkpoint
 wait_for_logs $jm_pod_name "Restoring job $job_id from Checkpoint" ${TIMEOUT} || exit 1
 wait_for_logs $jm_pod_name "Completed checkpoint [0-9]+ for job" ${TIMEOUT} || exit 1
-wait_for_status flinkdep/flink-example-statemachine '.status.jobManagerDeploymentStatus' READY ${TIMEOUT} || exit 1
-wait_for_status flinkdep/flink-example-statemachine '.status.jobStatus.state' RUNNING ${TIMEOUT} || exit 1
+wait_for_status $SESSION_CLUSTER_IDENTIFIER '.status.jobManagerDeploymentStatus' READY ${TIMEOUT} || exit 1
+wait_for_status $SESSION_JOB_IDENTIFIER '.status.jobStatus.state' RUNNING ${TIMEOUT} || exit 1
 
 echo "Successfully run the Flink Kubernetes application HA test"
 
