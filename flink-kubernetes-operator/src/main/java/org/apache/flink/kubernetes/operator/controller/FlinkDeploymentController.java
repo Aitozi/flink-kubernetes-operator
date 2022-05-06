@@ -169,4 +169,8 @@ public class FlinkDeploymentController
         }
         return validationError;
     }
+
+    private boolean areSessionJobsAllDeleted(String deploymentName) {
+        return false;
+    }
 }
