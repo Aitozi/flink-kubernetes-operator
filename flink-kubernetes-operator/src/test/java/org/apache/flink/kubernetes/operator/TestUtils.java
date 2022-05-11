@@ -38,6 +38,7 @@ import org.apache.flink.kubernetes.operator.crd.status.FlinkDeploymentStatus;
 import org.apache.flink.kubernetes.operator.crd.status.FlinkSessionJobStatus;
 import org.apache.flink.kubernetes.operator.crd.status.JobManagerDeploymentStatus;
 import org.apache.flink.kubernetes.operator.exception.DeploymentFailedException;
+import org.apache.flink.kubernetes.operator.informer.InformerManager;
 import org.apache.flink.kubernetes.operator.observer.deployment.ObserverFactory;
 import org.apache.flink.kubernetes.operator.reconciler.deployment.ReconcilerFactory;
 import org.apache.flink.kubernetes.operator.utils.ValidatorUtils;
@@ -62,6 +63,7 @@ import io.javaoperatorsdk.operator.api.reconciler.RetryInfo;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -349,7 +351,11 @@ public class TestUtils {
                         configManager,
                         kubernetesClient,
                         ValidatorUtils.discoverValidators(configManager),
-                        new ReconcilerFactory(kubernetesClient, flinkService, configManager),
+                        new ReconcilerFactory(
+                                kubernetesClient,
+                                flinkService,
+                                configManager,
+                                new InformerManager(new HashSet<>(), kubernetesClient)),
                         new ObserverFactory(flinkService, configManager));
         controller.setControllerConfig(
                 new FlinkControllerConfig(controller, Collections.emptySet()));
