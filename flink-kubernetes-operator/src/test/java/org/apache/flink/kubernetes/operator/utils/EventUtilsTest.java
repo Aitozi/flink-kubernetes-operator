@@ -25,6 +25,8 @@ import io.fabric8.kubernetes.client.server.mock.KubernetesMockServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.security.NoSuchAlgorithmException;
+
 /** Test for {@link EventUtils}. */
 @EnableKubernetesMockClient(crud = true)
 public class EventUtilsTest {
@@ -106,5 +108,11 @@ public class EventUtilsTest {
                         message,
                         EventUtils.Component.Operator);
         Assertions.assertNotEquals(name1, name2);
+    }
+
+    @Test
+    public void test() throws NoSuchAlgorithmException {
+        var uid = "1af42f76-2c77-4c88-84aa-240f7a1869c6";
+        System.out.println(uid.replaceAll("-", ""));
     }
 }

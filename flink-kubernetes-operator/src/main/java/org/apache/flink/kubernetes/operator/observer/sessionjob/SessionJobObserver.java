@@ -22,6 +22,7 @@ import org.apache.flink.kubernetes.operator.crd.FlinkDeployment;
 import org.apache.flink.kubernetes.operator.crd.FlinkSessionJob;
 import org.apache.flink.kubernetes.operator.crd.status.FlinkSessionJobStatus;
 import org.apache.flink.kubernetes.operator.crd.status.JobStatus;
+import org.apache.flink.kubernetes.operator.crd.status.ReconciliationState;
 import org.apache.flink.kubernetes.operator.observer.JobStatusObserver;
 import org.apache.flink.kubernetes.operator.observer.Observer;
 import org.apache.flink.kubernetes.operator.observer.SavepointObserver;
@@ -94,6 +95,15 @@ public class SessionJobObserver implements Observer<FlinkSessionJob> {
 
     @Override
     public void observe(FlinkSessionJob flinkSessionJob, Context context) {
+
+        var reconciliationStatus = flinkSessionJob.getStatus().getReconciliationStatus();
+        if (reconciliationStatus.getState() == ReconciliationState.UPGRADING) {
+            checkIfAlreadyUpgraded(flinkApp, context);
+            if (reconciliationStatus.getState() == ReconciliationState.UPGRADING) {
+                return;
+            }
+        }
+
         var lastReconciledSpec =
                 flinkSessionJob.getStatus().getReconciliationStatus().getLastReconciledSpec();
 

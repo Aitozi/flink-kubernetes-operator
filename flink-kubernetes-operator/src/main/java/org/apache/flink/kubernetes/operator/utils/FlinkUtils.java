@@ -17,6 +17,7 @@
 
 package org.apache.flink.kubernetes.operator.utils;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
@@ -43,13 +44,16 @@ import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 
 import static org.apache.flink.kubernetes.utils.Constants.LABEL_CONFIGMAP_TYPE_HIGH_AVAILABILITY;
@@ -301,5 +305,14 @@ public class FlinkUtils {
                                 .orElse(Collections.emptyMap()));
         labels.put(CR_GENERATION_LABEL, generation.toString());
         conf.set(KubernetesConfigOptions.JOB_MANAGER_ANNOTATIONS, labels);
+    }
+
+    @SneakyThrows
+    public static JobID generateJobIdFromUid(ObjectMeta meta) {
+        MessageDigest md5 = MessageDigest.getInstance("MD5");
+        return new JobID(
+                md5.digest(
+                        Objects.requireNonNull(meta.getUid(), "The uid should not be null.")
+                                .getBytes()));
     }
 }
